@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Celtic Tribes Battle Simulator</title>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#f7f7f8;--card:#fff;--text:#18181b;--muted:#71717a;--line:#e4e4e7;--dark:#18181b;--soft:#f4f4f5;--green:#166534;--red:#b91c1c}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{background:#fff;border-bottom:1px solid var(--line);padding:22px 18px}
+header>div,main{max-width:980px;margin:auto}
+h1{font-size:24px;letter-spacing:-.02em;margin:0 0 4px}header p{margin:0;color:var(--muted);font-size:14px}
+main{padding:20px 16px 50px}.columns{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+h2{font-size:17px;margin:0 0 15px}h3{font-size:15px;margin:22px 0 10px}
+.unit{display:grid;grid-template-columns:minmax(0,1fr) 110px;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f0f0f1}.unit:last-child{border-bottom:0}
+.name{font-size:14px;font-weight:600}.stat{font-size:11px;color:var(--muted);margin-top:2px}
+input,select{width:100%;border:1px solid #d4d4d8;border-radius:6px;background:#fff;padding:9px 10px;font:inherit;font-size:15px;color:var(--text)}
+input:focus,select:focus{outline:2px solid #a1a1aa;outline-offset:1px}
+.wall{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+.actions{display:flex;gap:8px;margin:16px 0}.btn{border:1px solid var(--dark);background:var(--dark);color:#fff;border-radius:7px;padding:10px 17px;font-size:14px;font-weight:600;cursor:pointer}.btn.alt{background:#fff;color:var(--text);border-color:#d4d4d8}
+.result-empty{color:var(--muted);font-size:14px}.outcome{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:15px}
+.outcome-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.outcome-value{font-size:25px;font-weight:750;letter-spacing:-.02em;margin-top:3px}.win{color:var(--green)}.losses{text-align:right;font-size:13px;color:var(--muted)}.losses b{color:var(--text);font-size:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}th{font-weight:500;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}th,td{text-align:right;padding:8px 4px;border-bottom:1px solid #f0f0f1}th:first-child,td:first-child{text-align:left}.left{font-weight:700}
+details{margin-top:16px;color:var(--muted);font-size:12px}summary{cursor:pointer;color:#52525b}.formula{line-height:1.55;margin-top:10px}
+@media(max-width:700px){header{padding:18px 16px}main{padding-top:14px}.columns{grid-template-columns:1fr}.card{padding:15px}.wall{grid-template-columns:1fr}.unit{grid-template-columns:minmax(0,1fr) 95px}.outcome{display:block}.losses{text-align:left;margin-top:12px;display:flex;gap:20px}.actions{position:sticky;bottom:0;background:rgba(247,247,248,.95);padding:10px 0;margin:8px 0;z-index:3}.btn{flex:1}}
+</style>
+</head>
+<body>
+<header><div><h1>Celtic Tribes Battle Simulator</h1><p>Estimate battle outcome, losses and remaining troops.</p></div></header>
+<main>
+<div class="columns">
+<section class="card"><h2>Attacking army</h2><div id="attacker"></div></section>
+<section class="card"><h2>Defending army</h2><div id="defender"></div></section>
+</div>
+
+<section class="card" style="margin-top:16px">
+<h2>Defensive wall</h2>
+<div class="wall">
+<div class="field"><label>Wall level</label><select id="preset"><option value="30">Level 30</option><option value="5">Level 5</option><option value="custom">Custom</option></select></div>
+<div class="field"><label>Defense bonus (%)</label><input id="bonus" type="number" value="100" min="0"></div>
+<div class="field"><label>Base defense</label><input id="base" type="number" value="8000" min="0"></div>
+</div>
+</section>
+
+<div class="actions"><button class="btn" id="sim">Calculate battle</button><button class="btn alt" id="clear">Clear</button></div>
+
+<section class="card" id="result"><div class="result-empty">Enter the attacking and defending troops, then calculate the battle.</div></section>
+
+<details>
+<summary>About the calculation</summary>
+<div class="formula">The calculator compares attack power for each troop class with the corresponding defensive power. Wall defense and wall bonuses are included. The model is based on observed Celtic Tribes battle reports and is still being refined, particularly for attacker victories.</div>
+</details>
+</main>
+<script>
+const units=[
+["Slinger","Artillery",81,65,210,165],["Archer","Artillery",55,148,480,291],
+["Battering Ram","Artillery",444,221,853,562],["Spearman","Infantry",44,382,252,145],
+["Axe Warrior","Infantry",155,241,137,63],["Ballista","Infantry",369,1447,937,540],
+["Lancer","Cavalry",73,128,59,258],["War Chariot","Cavalry",53,308,148,456],
+["Catapult","Cavalry",467,384,139,675]
+];
+function build(id,side){
+ const box=document.getElementById(id);
+ units.forEach(u=>{
+  const row=document.createElement("div");row.className="unit";
+  const info=side==="a"?`${u[1]} · Attack ${u[2]}`:`Defense: Cav ${u[3]} · Inf ${u[4]} · Art ${u[5]}`;
+  row.innerHTML=`<div><div class="name">${u[0]}</div><div class="stat">${info}</div></div><input aria-label="${u[0]}" inputmode="numeric" type="number" min="0" step="1" value="0" data-side="${side}" data-unit="${u[0]}">`;
+  box.appendChild(row);
+ });
+}
+build("attacker","a");build("defender","d");
+const q=(s,n)=>document.querySelector(`[data-side="${s}"][data-unit="${n}"]`);
+const val=(s,n)=>Math.max(0,Number(q(s,n).value)||0);
+const fmt=n=>Math.round(n).toLocaleString();
+function setArmy(s,o){units.forEach(u=>q(s,u[0]).value=o[u[0]]||0)}
+function rows(side,loss){
+ return units.filter(u=>val(side,u[0])>0).map(u=>{
+  const start=val(side,u[0]),left=Math.max(0,Math.round(start*(1-loss)));
+  return `<tr><td>${u[0]}</td><td>${fmt(start)}</td><td>${fmt(start-left)}</td><td class="left">${fmt(left)}</td></tr>`;
+ }).join("")||'<tr><td colspan="4">No troops</td></tr>';
+}
+function simulate(){
+ const mult=1+(Number(bonus.value)||0)/100,wall=Math.max(0,Number(base.value)||0);
+ const A={Artillery:0,Infantry:0,Cavalry:0},D={Artillery:wall,Infantry:wall,Cavalry:wall};
+ units.forEach(u=>{const a=val("a",u[0]),d=val("d",u[0]);A[u[1]]+=a*u[2];D.Cavalry+=d*u[3]*mult;D.Infantry+=d*u[4]*mult;D.Artillery+=d*u[5]*mult});
+ const r={Artillery:A.Artillery/D.Artillery,Infantry:A.Infantry/D.Infantry,Cavalry:A.Cavalry/D.Cavalry};
+ const R=r.Artillery+r.Infantry+r.Cavalry,aw=R>=.5;
+ let aLoss,dLoss;if(aw){dLoss=1;aLoss=Math.min(1,Math.pow(.5/R,.516))}else{aLoss=1;dLoss=Math.min(1,2*R)}
+ result.innerHTML=`<div class="outcome"><div><div class="outcome-label">Result</div><div class="outcome-value win">${aw?"Attacker wins":"Defender wins"}</div></div><div class="losses"><div>Attacker losses<br><b>${(aLoss*100).toFixed(1)}%</b></div><div>Defender losses<br><b>${(dLoss*100).toFixed(1)}%</b></div></div></div>
+ <div class="columns"><div><h3>Attacker</h3><table><thead><tr><th>Unit</th><th>Start</th><th>Lost</th><th>Left</th></tr></thead><tbody>${rows("a",aLoss)}</tbody></table></div>
+ <div><h3>Defender</h3><table><thead><tr><th>Unit</th><th>Start</th><th>Lost</th><th>Left</th></tr></thead><tbody>${rows("d",dLoss)}</tbody></table></div></div>
+ <details><summary>Battle details</summary><div class="formula">Combat score: ${R.toFixed(4)}<br>Artillery ratio: ${r.Artillery.toFixed(4)}<br>Infantry ratio: ${r.Infantry.toFixed(4)}<br>Cavalry ratio: ${r.Cavalry.toFixed(4)}</div></details>`;
+}
+sim.onclick=simulate;
+preset.onchange=e=>{if(e.target.value==="30"){bonus.value=100;base.value=8000}else if(e.target.value==="5"){bonus.value=74;base.value=3690}};
+clear.onclick=()=>{setArmy("a",{});setArmy("d",{});result.innerHTML='<div class="result-empty">Enter the attacking and defending troops, then calculate the battle.</div>'};
+</script>
+</body></html>
