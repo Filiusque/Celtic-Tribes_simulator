@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Celtic Tribes Battle Simulator</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f6f6;color:#222;font-family:Arial,sans-serif}
+header{background:#fff;border-bottom:1px solid #ddd;padding:20px}header div,main{max-width:1000px;margin:auto}
+h1{margin:0 0 5px;font-size:24px}header p{margin:0;color:#666;font-size:14px}
+main{padding:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px}
+h2{font-size:18px;margin:0 0 14px}.setting{padding-bottom:14px;margin-bottom:8px;border-bottom:1px solid #eee}
+label{font-size:13px;color:#555}select,input{width:100%;padding:9px;border:1px solid #ccc;border-radius:5px;font-size:16px;background:#fff}
+.info{font-size:12px;color:#666;margin-top:6px}.unit{display:grid;grid-template-columns:1fr 110px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid #eee}
+.unit:last-child{border:0}.unit-name{font-size:14px;font-weight:600}.unit-stat{font-size:11px;color:#777;margin-top:2px}
+.actions{display:flex;gap:8px;margin:16px 0}button{padding:11px 16px;border-radius:6px;border:1px solid #222;font-weight:600;cursor:pointer}
+.primary{background:#222;color:#fff}.secondary{background:#fff;color:#222}.result-title{font-size:25px;font-weight:700;margin:4px 0 12px;color:#17652c}
+.summary{display:flex;gap:30px;padding-bottom:14px;border-bottom:1px solid #ddd;margin-bottom:14px}.summary div{font-size:13px;color:#666}.summary b{display:block;color:#222;font-size:18px;margin-top:3px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:8px 4px;border-bottom:1px solid #eee;text-align:right}th:first-child,td:first-child{text-align:left}th{font-size:11px;color:#777;text-transform:uppercase}.left{font-weight:700}
+details{margin-top:15px;font-size:12px;color:#666}summary{cursor:pointer}.details{line-height:1.7;margin-top:8px}
+@media(max-width:700px){main{padding:12px}.grid{grid-template-columns:1fr}.unit{grid-template-columns:1fr 95px}.summary{gap:15px}.actions{position:sticky;bottom:0;background:#f6f6f6;padding:8px 0;z-index:2}button{flex:1}}
+
+.defense-planner-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.defense-mode-note{font-size:13px;color:#666;margin:8px 0 0}
+@media(max-width:700px){.defense-planner-grid{grid-template-columns:1fr}}
+
+
+/* Hide troop ATK/DEF descriptions without changing calculations */
+[data-stat^="a-"],
+[data-stat^="d-"] {
+  display: none !important;
+}
+
+</style>
+</head>
+<body>
+<header><div><h1>Celtic Tribes Battle Simulator</h1><p>Battle simulator using level-specific troop stats, plus silver planning tools.</p></div></header>
+<main>
+<div class="grid">
+<section class="card">
+<h2>Attacking army</h2>
+<div class="setting">
+<label for="arenaLevel">Arena level</label>
+<select id="arenaLevel"></select>
+<div class="info" id="arenaInfo"></div>
+</div>
+<div id="attacker"></div>
+</section>
+<section class="card">
+<h2>Defending army</h2>
+<div class="setting">
+<label for="wallLevel">Wall level</label>
+<select id="wallLevel"></select>
+<div class="info" id="wallInfo"></div>
+</div>
+<div id="defender"></div>
+</section>
+</div>
+<div class="actions">
+<button class="primary" id="calculate">Calculate battle</button>
+<button class="secondary" disabled="" id="reuseDefender">Re-use defender troops</button>
+<button class="secondary" id="clear">Clear troops</button>
+</div>
+
+<section class="card" id="result"></section><section class="card" style="margin-bottom:16px">
+<h2>Attack Planner</h2>
+<p style="font-size:13px;color:#666;margin-top:-5px">Find the attack composition that maximizes the current combat score against the defending army entered above.</p>
+<div class="grid" style="margin-top:14px">
+<div><label for="plannerTroops">Maximum attacking troops</label><input id="plannerTroops" inputmode="numeric" min="1" step="1" type="number" value="10000"/></div>
+<div><label for="plannerTarget">Planner mode</label><select id="plannerTarget"><option value="max">Maximum damage with troop limit</option><option value="loss">Minimum troops for target defender losses</option></select></div>
+</div>
+<div id="targetLossWrap" style="margin-top:12px;display:none"><label for="targetLoss">Target defender losses (%)</label><input id="targetLoss" max="100" min="1" step="0.1" type="number" value="100"/></div>
+<div class="actions" style="position:static;background:transparent;padding:0"><button class="primary" id="optimize">Optimize attack</button><button class="secondary" id="usePlan">Use planned army</button></div>
+<div class="info" id="plannerResult">Enter the defender above and choose a troop limit.</div>
+</section>
+
+
+<section class="card" style="margin-top:16px">
+<h2>Silver Calculator</h2>
+<p style="font-size:13px;color:#666;margin-top:-5px">Calculate the silver required for sequential village captures.</p>
+<div class="grid" style="margin-top:14px">
+<div><label for="currentVillages">Current villages</label><input id="currentVillages" inputmode="numeric" min="0" step="1" type="number" value="100"/></div>
+<div><label for="villagesToCapture">Villages to capture</label><input id="villagesToCapture" inputmode="numeric" min="0" step="1" type="number" value="5"/></div>
+</div>
+<div class="actions" style="position:static;background:transparent;padding:0"><button class="primary" id="calculateSilver">Calculate silver</button></div>
+<div id="silverResult"></div>
+<hr style="border:0;border-top:1px solid #ddd;margin:22px 0"/>
+<h2>How many villages can I capture?</h2>
+<p style="font-size:13px;color:#666;margin-top:-5px">Enter your current village count and available silver.</p>
+<div class="grid" style="margin-top:14px">
+<div><label for="affordCurrentVillages">Current villages</label><input id="affordCurrentVillages" inputmode="numeric" min="0" step="1" type="number" value="100"/></div>
+<div><label for="availableSilver">Available silver</label><input id="availableSilver" inputmode="numeric" min="0" step="1" type="number" value="1000000"/></div>
+</div>
+<div class="actions" style="position:static;background:transparent;padding:0"><button class="primary" id="calculateAffordable">Calculate villages</button></div>
+<div id="affordResult"></div>
+</section>
+</main>
+<script>
+(function(){
+"use strict";
+const unitOrder=["Slinger","Archer","Battering Ram","Spearman","Axe","Ballista","Lancer","War Chariot","Catapult"];
+const unitType={"Slinger":"Artillery","Archer":"Artillery","Battering Ram":"Artillery","Spearman":"Infantry","Axe":"Infantry","Ballista":"Infantry","Lancer":"Cavalry","War Chariot":"Cavalry","Catapult":"Cavalry"};
+const arenaStats={
+2:{"Archer":48,"Spearman":38,"Ballista":320,"War Chariot":46,"Slinger":70,"Battering Ram":386,"Axe":134,"Lancer":63,"Catapult":406},
+3:{"Archer":48,"Spearman":38,"Ballista":320,"War Chariot":46,"Slinger":70,"Battering Ram":386,"Axe":134,"Lancer":63,"Catapult":406},
+4:{"Archer":48,"Spearman":38,"Ballista":323,"War Chariot":47,"Slinger":71,"Battering Ram":389,"Axe":136,"Lancer":64,"Catapult":409},
+9:{"Archer":49,"Spearman":39,"Ballista":331,"War Chariot":48,"Slinger":73,"Battering Ram":399,"Axe":139,"Lancer":65,"Catapult":419},
+10:{"Archer":50,"Spearman":40,"Ballista":334,"War Chariot":48,"Slinger":73,"Battering Ram":402,"Axe":140,"Lancer":66,"Catapult":423},
+11:{"Archer":50,"Spearman":40,"Ballista":336,"War Chariot":49,"Slinger":74,"Battering Ram":405,"Axe":141,"Lancer":66,"Catapult":426},
+12:{"Archer":50,"Spearman":40,"Ballista":336,"War Chariot":49,"Slinger":74,"Battering Ram":405,"Axe":141,"Lancer":66,"Catapult":426},
+15:{"Archer":51,"Spearman":41,"Ballista":342,"War Chariot":50,"Slinger":75,"Battering Ram":411,"Axe":144,"Lancer":67,"Catapult":433},
+16:{"Archer":51,"Spearman":41,"Ballista":344,"War Chariot":50,"Slinger":76,"Battering Ram":415,"Axe":145,"Lancer":68,"Catapult":436},
+17:{"Archer":52,"Spearman":41,"Ballista":347,"War Chariot":50,"Slinger":76,"Battering Ram":418,"Axe":146,"Lancer":68,"Catapult":440},
+18:{"Archer":52,"Spearman":41,"Ballista":347,"War Chariot":50,"Slinger":76,"Battering Ram":418,"Axe":146,"Lancer":68,"Catapult":440},
+19:{"Archer":52,"Spearman":42,"Ballista":350,"War Chariot":51,"Slinger":77,"Battering Ram":421,"Axe":147,"Lancer":69,"Catapult":443},
+20:{"Archer":52,"Spearman":42,"Ballista":352,"War Chariot":51,"Slinger":77,"Battering Ram":424,"Axe":148,"Lancer":69,"Catapult":447},
+21:{"Archer":52,"Spearman":42,"Ballista":352,"War Chariot":51,"Slinger":77,"Battering Ram":424,"Axe":148,"Lancer":69,"Catapult":447},
+22:{"Archer":53,"Spearman":42,"Ballista":355,"War Chariot":51,"Slinger":78,"Battering Ram":428,"Axe":149,"Lancer":70,"Catapult":450},
+23:{"Archer":53,"Spearman":43,"Ballista":358,"War Chariot":52,"Slinger":78,"Battering Ram":431,"Axe":150,"Lancer":70,"Catapult":454},
+24:{"Archer":53,"Spearman":43,"Ballista":358,"War Chariot":52,"Slinger":78,"Battering Ram":431,"Axe":150,"Lancer":70,"Catapult":454},
+25:{"Archer":54,"Spearman":43,"Ballista":360,"War Chariot":52,"Slinger":79,"Battering Ram":434,"Axe":151,"Lancer":71,"Catapult":457},
+26:{"Archer":54,"Spearman":43,"Ballista":363,"War Chariot":53,"Slinger":80,"Battering Ram":437,"Axe":153,"Lancer":72,"Catapult":460},
+27:{"Archer":54,"Spearman":43,"Ballista":363,"War Chariot":53,"Slinger":80,"Battering Ram":437,"Axe":153,"Lancer":72,"Catapult":460},
+28:{"Archer":54,"Spearman":44,"Ballista":366,"War Chariot":53,"Slinger":80,"Battering Ram":441,"Axe":154,"Lancer":72,"Catapult":464},
+29:{"Archer":54,"Spearman":44,"Ballista":366,"War Chariot":53,"Slinger":80,"Battering Ram":441,"Axe":154,"Lancer":72,"Catapult":464},
+30:{"Archer":55,"Spearman":44,"Ballista":369,"War Chariot":53,"Slinger":81,"Battering Ram":444,"Axe":155,"Lancer":73,"Catapult":467}
+};
+const wallStats={
+1:{"Archer":[127,413,251],"Spearman":[329,217,125],"Ballista":[1247,808,466],"War Chariot":[266,127,393],"Slinger":[56,181,142],"Battering Ram":[191,735,484],"Axe":[208,118,54],"Lancer":[110,50,223],"Catapult":[331,120,582]},
+2:{"Archer":[128,415,252],"Spearman":[331,218,126],"Ballista":[1254,812,468],"War Chariot":[267,128,395],"Slinger":[56,182,143],"Battering Ram":[192,739,487],"Axe":[209,118,55],"Lancer":[111,51,224],"Catapult":[333,120,585]},
+3:{"Archer":[129,418,253],"Spearman":[333,219,127],"Ballista":[1261,816,471],"War Chariot":[268,129,397],"Slinger":[57,183,144],"Battering Ram":[193,743,490],"Axe":[210,119,55],"Lancer":[112,51,225],"Catapult":[335,121,588]},
+6:{"Archer":[131,424,257],"Spearman":[338,223,129],"Ballista":[1281,829,478],"War Chariot":[273,131,403],"Slinger":[58,186,146],"Battering Ram":[196,755,497],"Axe":[213,121,56],"Lancer":[113,52,228],"Catapult":[340,123,597]},
+7:{"Archer":[131,427,259],"Spearman":[340,224,129],"Ballista":[1287,834,481],"War Chariot":[274,131,405],"Slinger":[58,187,147],"Battering Ram":[197,758,500],"Axe":[214,122,56],"Lancer":[114,52,230],"Catapult":[342,124,600]},
+9:{"Archer":[133,431,261],"Spearman":[343,226,131],"Ballista":[1301,842,486],"War Chariot":[277,133,410],"Slinger":[58,189,148],"Battering Ram":[199,766,505],"Axe":[216,123,57],"Lancer":[115,53,232],"Catapult":[345,126,606]},
+11:{"Archer":[134,435,264],"Spearman":[347,229,132],"Ballista":[1314,851,491],"War Chariot":[280,134,414],"Slinger":[59,191,150],"Battering Ram":[201,774,510],"Axe":[219,124,57],"Lancer":[116,53,234],"Catapult":[349,126,613]},
+12:{"Archer":[135,438,265],"Spearman":[348,230,133],"Ballista":[1321,855,493],"War Chariot":[281,135,416],"Slinger":[59,192,150],"Battering Ram":[202,778,513],"Axe":[220,125,57],"Lancer":[117,53,236],"Catapult":[350,127,616]},
+13:{"Archer":[135,440,267],"Spearman":[350,231,133],"Ballista":[1327,860,496],"War Chariot":[283,135,418],"Slinger":[60,193,151],"Battering Ram":[203,782,515],"Axe":[221,125,58],"Lancer":[117,54,237],"Catapult":[352,127,619]},
+15:{"Archer":[137,444,269],"Spearman":[354,233,135],"Ballista":[1341,868,500],"War Chariot":[285,137,422],"Slinger":[60,195,153],"Battering Ram":[205,790,521],"Axe":[223,127,58],"Lancer":[119,54,239],"Catapult":[356,129,625]},
+17:{"Archer":[138,449,272],"Spearman":[357,235,136],"Ballista":[1354,877,505],"War Chariot":[288,138,426],"Slinger":[61,197,154],"Battering Ram":[207,798,526],"Axe":[225,128,59],"Lancer":[120,55,242],"Catapult":[359,130,631]},
+18:{"Archer":[139,451,273],"Spearman":[359,237,137],"Ballista":[1361,881,508],"War Chariot":[290,139,428],"Slinger":[61,198,155],"Battering Ram":[208,802,528],"Axe":[226,129,59],"Lancer":[120,55,243],"Catapult":[361,131,634]},
+19:{"Archer":[139,453,275],"Spearman":[361,238,137],"Ballista":[1367,886,510],"War Chariot":[291,139,430],"Slinger":[62,199,156],"Battering Ram":[209,806,531],"Axe":[228,129,59],"Lancer":[121,55,244],"Catapult":[363,131,638]},
+21:{"Archer":[141,457,277],"Spearman":[364,240,139],"Ballista":[1381,894,515],"War Chariot":[294,141,435],"Slinger":[62,201,157],"Battering Ram":[211,814,536],"Axe":[230,130,60],"Lancer":[122,56,246],"Catapult":[366,132,644]},
+23:{"Archer":[142,462,280],"Spearman":[368,242,140],"Ballista":[1394,903,520],"War Chariot":[297,142,439],"Slinger":[63,203,159],"Battering Ram":[213,821,541],"Axe":[232,132,61],"Lancer":[123,56,249],"Catapult":[370,134,650]},
+27:{"Archer":[145,471,285],"Spearman":[375,247,143],"Ballista":[1421,920,530],"War Chariot":[302,145,447],"Slinger":[64,207,162],"Battering Ram":[217,837,552],"Axe":[236,134,62],"Lancer":[126,58,253],"Catapult":[377,136,662]},
+30:{"Archer":[148,480,291],"Spearman":[382,252,145],"Ballista":[1447,937,540],"War Chariot":[308,148,456],"Slinger":[65,210,165],"Battering Ram":[221,853,562],"Axe":[241,137,63],"Lancer":[128,59,258],"Catapult":[384,139,675]}
+};
+const wallBase=[3000,3172,3345,3517,3690,3862,4034,4207,4379,4552,4724,4897,5069,5241,5414,5586,5759,5931,6103,6276,6448,6621,6793,6966,7138,7310,7483,7655,7828,8000];
+const arena=document.getElementById("arenaLevel"), wall=document.getElementById("wallLevel"), arenaInfo=document.getElementById("arenaInfo"), wallInfo=document.getElementById("wallInfo"), result=document.getElementById("result");
+Object.keys(arenaStats).map(Number).sort((a,b)=>a-b).forEach(l=>arena.add(new Option("Level "+l,l)));
+Object.keys(wallStats).map(Number).sort((a,b)=>a-b).forEach(l=>wall.add(new Option("Level "+l,l)));
+arena.value="30"; wall.value="30";
+function fmt(n){return Math.round(n).toLocaleString();}
+function updateInfo(){arenaInfo.textContent="Uses the actual Arena Lv"+arena.value+" troop ATK values (no extra % multiplier).";wallInfo.textContent="Uses actual Wall Lv"+wall.value+" troop DEF values + "+fmt(wallBase[+wall.value-1])+" base defense to each class.";refreshStats();}
+arena.addEventListener("change",updateInfo);wall.addEventListener("change",updateInfo);
+function buildArmy(id,side){const box=document.getElementById(id);unitOrder.forEach(name=>{const row=document.createElement("div");row.className="unit";row.innerHTML='<div><div class="unit-name">'+name+'</div><div class="unit-stat" data-stat="'+side+'-'+name+'"></div></div><input type="number" min="0" step="1" inputmode="numeric" value="0" data-side="'+side+'" data-unit="'+name+'">';box.appendChild(row);});}
+buildArmy("attacker","a");buildArmy("defender","d");
+function refreshStats(){const a=arenaStats[+arena.value],d=wallStats[+wall.value];unitOrder.forEach(name=>{document.querySelector('[data-stat="a-'+name+'"]').textContent=unitType[name]+' · ATK '+a[name];const x=d[name];document.querySelector('[data-stat="d-'+name+'"]').textContent='DEF Cav '+x[0]+' · Inf '+x[1]+' · Art '+x[2];});}
+function troop(side,name){return Math.max(0,Number(document.querySelector('input[data-side="'+side+'"][data-unit="'+name+'"]').value)||0);}
+function survivorRows(side,loss){let out="";unitOrder.forEach(name=>{const start=troop(side,name);if(start>0){const left=Math.max(0,Math.round(start*(1-loss)));out+='<tr><td>'+name+'</td><td>'+fmt(start)+'</td><td>'+fmt(start-left)+'</td><td class="left">'+fmt(left)+'</td></tr>';}});return out||'<tr><td colspan="4">No troops</td></tr>';}
+let lastDefenderSurvivors=null;
+function calculate(){const ast=arenaStats[+arena.value],dst=wallStats[+wall.value],base=wallBase[+wall.value-1];const A={Artillery:0,Infantry:0,Cavalry:0},D={Artillery:base,Infantry:base,Cavalry:base};unitOrder.forEach(name=>{A[unitType[name]]+=troop("a",name)*ast[name];const x=dst[name],n=troop("d",name);D.Cavalry+=n*x[0];D.Infantry+=n*x[1];D.Artillery+=n*x[2];});const r={Artillery:A.Artillery/D.Artillery,Infantry:A.Infantry/D.Infantry,Cavalry:A.Cavalry/D.Cavalry};const R=r.Artillery+r.Infantry+r.Cavalry;const attackerWins=R>=1;let aLoss,dLoss;if(attackerWins){dLoss=1;aLoss=Math.min(1,1/R);}else{aLoss=1;dLoss=Math.min(1,R);}
+lastDefenderSurvivors={};unitOrder.forEach(name=>{const start=troop("d",name);lastDefenderSurvivors[name]=Math.max(0,Math.round(start*(1-dLoss)));});
+document.getElementById("reuseDefender").disabled=false;
+result.innerHTML='<div class="result-title">'+(attackerWins?'Attacker wins':'Defender wins')+'</div><div class="summary"><div>Attacker losses<b>'+(aLoss*100).toFixed(1)+'%</b></div><div>Defender losses<b>'+(dLoss*100).toFixed(1)+'%</b></div><div>Combat score R<b>'+R.toFixed(4)+'</b></div></div><div class="grid"><div><h2>Attacker after battle</h2><table><thead><tr><th>Unit</th><th>Start</th><th>Lost</th><th>Left</th></tr></thead><tbody>'+survivorRows("a",aLoss)+'</tbody></table></div><div><h2>Defender after battle</h2><table><thead><tr><th>Unit</th><th>Start</th><th>Lost</th><th>Left</th></tr></thead><tbody>'+survivorRows("d",dLoss)+'</tbody></table></div></div><details><summary>Battle details</summary><div class="details">Arena Lv'+arena.value+': direct troop ATK values<br>Wall Lv'+wall.value+': direct troop DEF values + '+fmt(base)+' base defense per class<br>Artillery: '+fmt(A.Artillery)+' / '+fmt(D.Artillery)+' = '+r.Artillery.toFixed(4)+'<br>Infantry: '+fmt(A.Infantry)+' / '+fmt(D.Infantry)+' = '+r.Infantry.toFixed(4)+'<br>Cavalry: '+fmt(A.Cavalry)+' / '+fmt(D.Cavalry)+' = '+r.Cavalry.toFixed(4)+'<br><br><b>Current outcome model:</b> R = Art A/D + Inf A/D + Cav A/D; threshold 1.0. For defender victories, defender casualty fraction = R because Wall bonuses are already incorporated into the direct troop DEF values. For attacker victories, attacker casualty fraction = 1/R; the excess attack above R = 1 survives.</div></details>';}
+
+let lastPlan=null;
+function defensePools(){
+ const dst=wallStats[+wall.value],base=wallBase[+wall.value-1];
+ const D={Artillery:base,Infantry:base,Cavalry:base};
+ unitOrder.forEach(name=>{const x=dst[name],n=troop("d",name);D.Cavalry+=n*x[0];D.Infantry+=n*x[1];D.Artillery+=n*x[2];});
+ return D;
+}
+function plannerEfficiencies(){
+ const ast=arenaStats[+arena.value],D=defensePools();
+ return unitOrder.map(name=>{
+   const cls=unitType[name], atk=ast[name], eff=atk/D[cls];
+   return {name,cls,atk,def:D[cls],eff};
+ }).sort((a,b)=>b.eff-a.eff);
+}
+function optimizeAttack(){
+ const mode=document.getElementById("plannerTarget").value;
+ const maxTroops=Math.max(1,Math.floor(Number(document.getElementById("plannerTroops").value)||1));
+ const ranked=plannerEfficiencies(), best=ranked[0], D=defensePools();
+ let needed=maxTroops, targetR=null;
+ if(mode==="loss"){
+   targetR=Math.max(.001,Math.min(1,Number(document.getElementById("targetLoss").value||100)/100));
+   needed=Math.ceil(targetR/best.eff);
+ }
+ const count=mode==="max"?maxTroops:needed;
+ const R=count*best.eff;
+ const plan={}; unitOrder.forEach(n=>plan[n]=0); plan[best.name]=count; lastPlan=plan;
+ const predLoss=R<1?Math.min(1,R):1;
+ let note=R>=1?"This plan reaches or exceeds R = 1.0, so defender losses are predicted as 100%.":"Predicted defender losses ≈ "+(predLoss*100).toFixed(2)+"% under the current model.";
+ let top=ranked.slice(0,5).map((x,i)=>'<tr><td>'+(i+1)+'. '+x.name+'</td><td>'+x.cls+'</td><td>'+x.atk+'</td><td>'+x.eff.toExponential(4)+'</td></tr>').join("");
+ document.getElementById("plannerResult").innerHTML=
+ '<div class="result-title">Optimal: '+fmt(count)+' × '+best.name+'</div>'+
+ '<div class="summary"><div>Predicted R<b>'+R.toFixed(4)+'</b></div><div>Predicted defender loss<b>'+(predLoss*100).toFixed(1)+'%</b></div><div>Best target class<b>'+best.cls+'</b></div></div>'+
+ '<p>'+note+'</p>'+
+ '<p><b>Why:</b> with only a total-troop constraint, the current linear A/D model is maximized by putting every available slot into the unit with the highest ATK ÷ opposing defense-pool value.</p>'+
+ '<details><summary>Efficiency ranking</summary><table><thead><tr><th>Unit</th><th>Class</th><th>ATK</th><th>R per troop</th></tr></thead><tbody>'+top+'</tbody></table></details>';
+}
+document.getElementById("plannerTarget").addEventListener("change",e=>{document.getElementById("targetLossWrap").style.display=e.target.value==="loss"?"block":"none";});
+document.getElementById("optimize").addEventListener("click",optimizeAttack);
+document.getElementById("usePlan").addEventListener("click",()=>{if(!lastPlan){optimizeAttack();} if(lastPlan){unitOrder.forEach(name=>document.querySelector('input[data-side="a"][data-unit="'+name+'"]').value=lastPlan[name]||0);calculate();}});
+
+
+
+
+document.getElementById("calculate").addEventListener("click",calculate);
+document.getElementById("reuseDefender").addEventListener("click",()=>{
+ if(!lastDefenderSurvivors)return;
+ unitOrder.forEach(name=>{
+   document.querySelector('input[data-side="d"][data-unit="'+name+'"]').value=lastDefenderSurvivors[name]||0;
+ });
+ result.innerHTML='<div class="info"><b>Defender survivors loaded.</b> Enter the next attacking army and calculate the next battle.</div>';
+});
+document.getElementById("clear").addEventListener("click",()=>{
+ document.querySelectorAll('input[data-side]').forEach(x=>x.value=0);
+ lastDefenderSurvivors=null;
+ document.getElementById("reuseDefender").disabled=true;
+ result.textContent="Enter troop numbers, select an available Arena and Wall level, then calculate the battle.";
+});
+function calculateSilver(){const current=Math.max(0,Math.floor(Number(document.getElementById("currentVillages").value)||0)),count=Math.max(0,Math.floor(Number(document.getElementById("villagesToCapture").value)||0)),box=document.getElementById("silverResult");if(count<1){box.innerHTML='<div class="info">Enter at least 1 village to capture.</div>';return;}const total=1000*(count*current+count*(count-1)/2),first=current*1000,last=(current+count-1)*1000,finalCount=current+count;box.innerHTML='<div class="summary" style="margin-top:16px"><div>Silver required<b>'+fmt(total)+'</b></div><div>Current villages<b>'+fmt(current)+'</b></div><div>Final villages<b>'+fmt(finalCount)+'</b></div></div><div class="info">First capture: '+fmt(first)+' silver · Last capture: '+fmt(last)+' silver</div>';}
+document.getElementById("calculateSilver").addEventListener("click",calculateSilver);
+function calculateAffordable(){const current=Math.max(0,Math.floor(Number(document.getElementById("affordCurrentVillages").value)||0)),silver=Math.max(0,Math.floor(Number(document.getElementById("availableSilver").value)||0)),box=document.getElementById("affordResult");let remaining=silver,captured=0,spent=0;while(true){const next=(current+captured)*1000;if(remaining<next)break;remaining-=next;spent+=next;captured++;if(captured>10000000)break;}const finalCount=current+captured,nextCost=finalCount*1000;box.innerHTML='<div class="summary" style="margin-top:16px"><div>Villages you can capture<b>'+fmt(captured)+'</b></div><div>Silver spent<b>'+fmt(spent)+'</b></div><div>Silver remaining<b>'+fmt(remaining)+'</b></div><div>Final villages<b>'+fmt(finalCount)+'</b></div></div><div class="info">Next village would cost '+fmt(nextCost)+' silver · You need '+fmt(Math.max(0,nextCost-remaining))+' more silver.</div>';}
+document.getElementById("calculateAffordable").addEventListener("click",calculateAffordable);
+updateInfo();calculateSilver();calculateAffordable();
+})();
+</script>
+</body>
+</html>
